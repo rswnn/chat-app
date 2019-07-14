@@ -1,21 +1,22 @@
 import React, { Component } from "react";
-import { TouchableHighlight, StyleSheet, Alert, Modal, Keyboard, ScrollView } from 'react-native'
-import { Container, Header, Content, Textarea, Form, View, List, ListItem, Text, Footer, Item, Input, Button, Icon } from "native-base";
-import AsyncStorage from '@react-native-community/async-storage'
+import { StyleSheet, Alert, Modal, FlatList } from 'react-native'
+import { Container, Header, Content,  Form, View, List, ListItem, Text, Footer, Item, Input, Button, Icon, Left, Right } from "native-base";
 import axios from 'axios'
-import Dialog, { DialogContent } from 'react-native-popup-dialog'
 import URL from '../Config/URL'
-import { TouchableOpacity } from "react-native-gesture-handler";
+import { TouchableOpacity } from "react-native-gesture-handler"
+import AsyncStorage from "@react-native-community/async-storage"
+import Dialog, { DialogContent } from 'react-native-popup-dialog'
 
 export default class TextArea extends Component {
 
   state = {
-    data: [],
     chat: '',
-    token: '',
+    rooms: '',
     visible: false,
     modalVisible: false,
-    name: '',
+    data: '',
+    user: '',
+    message: []
   }
 
   setModalVisible(visible) {
@@ -23,31 +24,30 @@ export default class TextArea extends Component {
   }
 
   getData() {
-        const { token } = this.state
-        axios.get(`${URL.API_URL}/history`, {
-          headers: {
-            authorization: `Bearer ${token}`
-          }
-        }).then(response => {
-          if (response.status === 200) {
-            this.setState({ data: response.data })
-          }
-        }).catch(err => alert('Oops !'))
+        AsyncStorage.getItem('@token').then(res => {
+          axios.get(`${URL.API_URL}/chat`)
+          .then(res => {
+            if(res.status === 200) {
+              console.log(res.data)
+              const user = res.data.message.filter(data => data.username === data.username)
+              this.setState({
+                message: res.data.message,
+                user: user})
+            }
+          }).catch(err => alert(err))
+        })
   }
 
   sendData() {
-    const { chat, token } = this.state
-      if( chat !== '' ){
-      axios.post(`${URL.API_URL}/chats`, {
-        chats: chat
-      },
-        {
-          headers: {
-            authorization: `Bearer ${token}`
-          }
-        }).then(res => {
+    const { chat } = this.state
+      if(chat !== ''){
+      axios.post(`${URL.API_URL}/chat`, {
+        id_user_rooms: this.state.data.id_user,
+        message: chat
+      }).then(res => {
           if (res.status === 200) {
             this.setState({ chat: '' })
+            this.getData()
           }
         }).catch(err => alert(err))
       } else {
@@ -55,13 +55,11 @@ export default class TextArea extends Component {
       }
   }
 
+
   deleteChat(id) {
-    axios.delete(`${URL.API_URL}/delete`, {
-      data: {
-        id: id
-      }
-    }).then(res => {
-      if (res.status === 200) {
+    axios.delete(`${URL.API_URL}/chat/${id}`)
+    .then(res => {
+      if (res) {
         this.getData()
       } else {
         alert('error deleted')
@@ -70,81 +68,88 @@ export default class TextArea extends Component {
   }
 
   componentWillMount() {
-    AsyncStorage.getItem('@token').then(res => this.setState({token: res}))
-    .catch(err => alert('Network Error'))
-    AsyncStorage.getItem('@name').then(res => this.setState({ name: res}))
-  }
+    const { navigation } = this.props
+       const id_room = navigation.getParam('id_room')
+       console.log(id_room)
+       this.setState({
+         data: id_room,
 
-  componentDidMount() {
-    setInterval(() => {
-      this.getData()
-    }, 500)
+       })
+       this.getData()
   }
 
   render() {
-    const { name } = this.state
     return (
       <Container>
-        <Header style={style.header} />
-        <Content style={{ backgroundColor: '#ECE5DD' }}>
-          {this.state.data.map((data) => (
-            <View  style={{minWidth: 50}} key={data.id}>
-              <List>
-                <ListItem style={(name === data.name) ? style.messageRight: style.messageLeft}>
-                  <Text style={style.name}>{data.name}</Text>
-                  <TouchableOpacity onPress={() => this.setState({ visible: true })}>
-                    <Text style={style.message}>{data.chats}</Text>
-                  </TouchableOpacity>
-                </ListItem>
-              </List>
-              <Dialog visible={this.state.visible} onTouchOutside={() => {
-                this.setState({ visible: false })
-              }}>
-                <DialogContent style={{ backgroundColor: 'white', height: 300, width: 300, justifyContent: 'center' }}>
-                  <Button full transparent onPress={() => {
-                    this.setModalVisible(!this.state.modalVisible)
-                    this.setState({ visible: false })
-                  }}>
-                    <Text>Edit</Text>
-                  </Button>
-                  <Button full transparent onPress={() => {
-                    this.setState({ visible: false })
-                    this.deleteChat(data.id)
-                  }}>
-                    <Text>Delete</Text>
-                  </Button>
-                </DialogContent>
-              </Dialog>
-              <View style={{ marginTop: 22 }}>
-                <Modal
-                  animationType="slide"
-                  transparent={true}
-                  visible={this.state.modalVisible}
-                  onRequestClose={() => {
-                    Alert.alert('Modal has been closed.')
-                  }}>
-                  <View style={{
-                    flex: 1,
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                  </View>
-                  <Footer style={{ backgroundColor: '#fff' }}>
-                    <Form>
-                      <Item style={style.inputFooter}>
-                        <Input placeholder="Edit Pesan" onChangeText={(text) => this.setState({ chat: text })} />
-                      </Item>
-                    </Form>
-                    <TouchableOpacity style={{ width: 100 }} onPress={() => this.setModalVisible(!this.state.modalVisible)}>
-                      <Icon type="MaterialIcons" name="send" style={style.icon} />
-                    </TouchableOpacity>
-                  </Footer>
-                </Modal>
-              </View>
-            </View>
-          ))}
-        </Content>
+        <Header style={style.header}>
+          <Left>
+          <Text style={{fontSize: 20, color: '#fff'}}>{this.state.data.name}</Text>
+          </Left>
+          <Right>
+            <TouchableOpacity onPress={() => this.props.navigation.navigate('Login')}>
+            <Icon type="MaterialCommunityIcons" name="logout" style={{color: 'white'}}/>
+            </TouchableOpacity>
+          </Right>
+        </Header>
+        <Content style={{ backgroundColor: '#ECE5DD', paddingTop: 20 }}>
+{this.state.message.map((data) => (
+  <View  style={{minWidth: 50}} key={data.id}>
+    <List>
+      <ListItem style={(data.id_user_rooms !== this.state.data.id_user ) ? style.messageLeft: style.messageRight}>
+        <Text style={style.name}>{data.username}</Text>
+        <TouchableOpacity onPress={() => this.setState({ visible: true })}>
+          <Text style={style.message}>{data.message}</Text>
+        </TouchableOpacity>
+      </ListItem>
+    </List>
+    <Dialog visible={this.state.visible} onTouchOutside={() => {
+      this.setState({ visible: false })
+    }}>
+      <DialogContent style={{ backgroundColor: 'white' ,height: 300, width: 300, justifyContent: 'center' }}>
+        <Button full transparent onPress={() => {
+          this.setModalVisible(!this.state.modalVisible)
+          this.setState({ visible: false })
+        }}>
+          <Text>Edit</Text>
+        </Button>
+        <Button full transparent onPress={() => {
+          this.setState({ visible: false })
+          this.deleteChat(data.id)
+        }}>
+          <Text>Delete</Text>
+        </Button>
+      </DialogContent>
+    </Dialog>
+    <View style={{ marginTop: 22 }}>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={this.state.modalVisible}
+        onRequestClose={() => {
+          Alert.alert('Modal has been closed.')
+        }}>
+        <View style={{
+          flex: 1,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+        </View>
+        <Footer style={{ backgroundColor: '#fff' }}>
+          <Form>
+            <Item style={style.inputFooter}>
+              <Input placeholder="Edit Pesan" onChangeText={(text) => this.setState({ chat: text })} />
+            </Item>
+          </Form>
+          <TouchableOpacity style={{ width: 100 }} onPress={() => this.setModalVisible(!this.state.modalVisible)}>
+            <Icon type="MaterialIcons" name="send" style={style.icon} />
+          </TouchableOpacity>
+        </Footer>
+      </Modal>
+    </View>
+  </View>
+))}
+</Content>
         <Footer style={style.footer}>
           <Form>
             <Item style={style.inputFooter}>
@@ -162,7 +167,8 @@ export default class TextArea extends Component {
 
 const style = StyleSheet.create({
   header: {
-    backgroundColor: '#075e54'
+    backgroundColor: '#075e54',
+    alignItems: 'center',
   },
   name: {
     marginHorizontal: 10,
@@ -177,18 +183,19 @@ const style = StyleSheet.create({
   },
   messageLeft: {
     backgroundColor: '#fff',
-    marginVertical: 5,
+    marginVertical: 0,
     marginRight: 'auto',
     borderRadius: 10,
     minWidth: 20,
-    paddingBottom: 0
+    paddingBottom: 'auto'
   },
   messageRight: {
     backgroundColor: '#DCF8C6',
     marginLeft: 'auto',
     borderRadius: 10,
     minWidth: 20,
-    paddingBottom: 0
+    paddingBottom: 'auto',
+    right: 20
   },
   footer: {
     backgroundColor: '#fff'

@@ -12,6 +12,14 @@ export default class FormExample extends Component {
         password: ''
     }
 
+    async setItem(key, value ) {
+        try {
+            return await AsyncStorage.setItem(key,value)
+        } catch(err) {
+            console.log(err)
+        }
+    }
+
     navigateMain() {
         const { email, password } = this.state
         axios.post(`${URL.API_URL}/login`, {
@@ -19,11 +27,11 @@ export default class FormExample extends Component {
             password
         }).then(res => {
             if (res.status === 200) {
-                AsyncStorage.setItem('@token', res.data.token)
-                AsyncStorage.setItem('@name', res.data.name)
-                    .then(() => {
-                        this.props.navigation.navigate('Home')
-                    }).catch('Error')
+                this.setItem('@user', res.data.user)
+                this.setItem('@token', res.data.access_token.token)
+                this.props.navigation.navigate('Room', {
+                    user: res.data.user
+                })
             }
         })
     }
@@ -48,7 +56,7 @@ export default class FormExample extends Component {
                     </View>
                 </Content>
                 <Footer style={styles.header}>
-                    <Text style={styles.textFooter}>Powered By Mas Sonny</Text>
+                    <Text style={styles.textFooter}>Powered Microsoft Inc</Text>
                 </Footer>
             </Container>
         );
